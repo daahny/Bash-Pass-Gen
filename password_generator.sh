@@ -23,39 +23,46 @@ FORMAT
 password_length=0
 use_special_chars=''
 password=''
+RED='\033[0;31m'
+GRAY='\033[0;37m'
+GREEN='\033[0;32m'
 
 
 
 # Get the desired password length
 function get_length {
-	read -rp "How long should the password be? (Enter for 15 chars): " password_length
+	printf "${GRAY}How long should the password be? (Enter for 15 chars): "
+	read -r password_length
+	echo ""
 	if [[ "$password_length" = "" ]]; then
 		password_length=15
 	elif [[ "$password_length" =~ ^[0-9]+$ ]]; then
 		return
 	else
-		echo "Error: Invalid Response. Exiting script..." && exit 1
+		printf "${RED}Error: Invalid Response. Exiting script...${GRAY}\n" && exit 1
 	fi
 }
 
 
 # Find out if the password should contain special characters
 function get_special_chars {
-	read -rp "Would you like to use special characters [Y|n]: "
+	printf "${GRAY}Would you like to use special characters [Y|n]: "
+	read -r
 	case "$REPLY" in 
 		"y"|"Y"|"")	use_special_chars=0;;
 		"n"|"N")	use_special_chars=1;;
-		*)		echo "Error: Invalid Response. Exiting script..."
+		*)		printf "${RED}Error: Invalid Response. Exiting script...${GRAY}\n"
 				exit 1;;
 	esac
+	echo ""
 }
 
 
 # Generate the password, then call a function to add special characters when appropriate
 function generate_pass {
+	export LC_ALL=C
 	password=$(cat /dev/urandom | grep -ao "[A-Za-z0-9]" | head -$password_length | tr -d '\n')
-	
-	 (($use_special_chars)) || add_special_chars
+	(($use_special_chars)) || add_special_chars
 }
 
 
@@ -65,7 +72,6 @@ function generate_pass {
 # it will be replaced with a special character in the spesh string that has the same index of the  
 # random char in the chars string.
 function add_special_chars {
-	export LC_ALL=C
 	spesh='$%&*;"@#!$%&*;"@#!'
 	# 10000 lines are used to increase the chances that enough randomly generated chars are unique.
 	chars=$(cat /dev/urandom | grep -ao "[A-Za-z0-9]" | head -100000 | awk '!x[$0]++' | head -18 | tr -d '\n')
@@ -73,15 +79,24 @@ function add_special_chars {
 # 	Uncomment for debugging
 #	echo "random chars: $chars"
 #	echo "spesh chars:  $spesh"
-#	echo "password:     $password"
+#	echo "password before inserting special chars:     $password"
 
 	# Loop through the password to see if any of the password chars match chars in the 
-	# 9 random chars generated above.
+	# 18 random chars generated above.
 	# If there is a match, replace it with the corresponding special character
 	for (( i=0; i < ${#password}; i++ )); do
 		current_char=${password:$i:1}
 		if [[ "$chars" =~ .*$current_char.* && $current_char =~ [a-zA-Z0-9] ]]; then
-			local spesh_index=$(($(expr index "$chars" "$current_char")-1))
+
+			### NEEDS MORE EFFICIENT LOGIC TO FIND INDEX ###
+			local spesh_index
+			for ((j=0; j < ${#chars}; j++)); do
+				if [[ ${chars:$j:1} =~ $current_char ]]; then
+					spesh_index=$j;
+					break;
+				fi
+			done
+
 			local spesh_char=${spesh:$spesh_index:1}
 			local new_password=${password//$current_char/$spesh_char}
 			password="$new_password"
@@ -98,7 +113,9 @@ function main {
 	get_length
 	get_special_chars
 	generate_pass
-	echo "$password"
+	printf "${GRAY}Randomly Generated Password:${GREEN}"
+	echo " $password"
 }
 
 main
+printf "${GRAY}\n"
