@@ -107,7 +107,7 @@ function add_special_chars {
 
 # Main function
 # First get the desired password length
-# Then determinw whether special characters are desired
+# Then determine whether special characters are desired
 # Finally, genereate the password and output it
 function main {
 	get_length
